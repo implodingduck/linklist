@@ -12,7 +12,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     db = client.get_database_client(os.environ.get('COSMOSDB_NAME'))
     container = db.get_container_client(os.environ.get('COSMOSDB_CONTAINER'))
     item = container.read_item(item=req.route_params.get('id'), partition_key=req.route_params.get('id'))
-    req_body = req.to_json()
+    req_body = req.get_json()
     if 'url' in req_body:
         item['url'] = req_body['url']
     if 'description' in req_body:
