@@ -30,3 +30,4 @@ override.tf.json
 sp-login.sh
 backend.tfvars
 **/.vscode/*
+**/authConfig.js

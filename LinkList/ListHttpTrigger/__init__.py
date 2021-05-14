@@ -4,10 +4,12 @@ import azure.functions as func
 from azure.cosmos import exceptions, CosmosClient, PartitionKey
 
 import os 
+import json
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
     trigger_name = 'List'
     logging.info(f'{trigger_name} HTTP trigger function processed a request.')
+    
     client = CosmosClient(os.environ.get('COSMOSDB_ENDPOINT'), os.environ.get('COSMOSDB_KEY'))
     db = client.get_database_client(os.environ.get('COSMOSDB_NAME'))
     container = db.get_container_client(os.environ.get('COSMOSDB_CONTAINER'))
@@ -24,6 +26,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             'description': i['description']
         } )
     return func.HttpResponse(
-            f'{retval}',
+            json.dumps(retval),
             status_code=200
     )

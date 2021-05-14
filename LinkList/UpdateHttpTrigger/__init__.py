@@ -4,7 +4,7 @@ import azure.functions as func
 from azure.cosmos import exceptions, CosmosClient, PartitionKey
 
 import os 
-
+import json
 def main(req: func.HttpRequest) -> func.HttpResponse:
     trigger_name = 'Update'
     logging.info(f'{trigger_name} HTTP trigger function processed a request.')
@@ -20,6 +20,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     container.upsert_item(body=item)
 
     return func.HttpResponse(
-            f'{item}',
+            json.dumps(item),
             status_code=200
     )

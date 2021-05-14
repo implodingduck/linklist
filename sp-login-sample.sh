@@ -22,3 +22,7 @@ export container_name="tstate"
 export TF_VAR_container_name=$container_name
 
 export TF_VAR_app_client_secret=""
+
+export TF_VAR_custom_domain=""
+
+export TF_VAR_cert_kv_name=""

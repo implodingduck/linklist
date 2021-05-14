@@ -26,3 +26,11 @@ variable "location" {
 variable "app_client_secret" {
   type    = string
 }
+
+variable "custom_domain" {
+  type    = string
+}
+
+variable "cert_kv_name" {
+  type = string
+}

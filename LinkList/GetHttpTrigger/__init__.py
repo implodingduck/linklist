@@ -4,7 +4,7 @@ import azure.functions as func
 from azure.cosmos import exceptions, CosmosClient, PartitionKey
 
 import os 
-
+import json 
 def main(req: func.HttpRequest) -> func.HttpResponse:
     trigger_name = 'Get'
     logging.info(f'{trigger_name} HTTP trigger function processed a request.')
@@ -21,11 +21,11 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     ))
     if len(items) > 0:
         return func.HttpResponse(
-                f'{items[0]}',
+                 json.dumps(items[0]),
                 status_code=200
         )
     else:
         return func.HttpResponse(
-                f'Link not found',
+                json.dumps( { 'message': 'Link not found' }),
                 status_code=404
         )
