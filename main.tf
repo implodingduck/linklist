@@ -41,8 +41,15 @@ data "azurerm_dns_zone" "domain" {
   name                = var.custom_domain
   resource_group_name = data.azurerm_resource_group.domain.name
 }
+data "azurerm_key_vault" "acmebot" {
+  name                = var.cert_kv_name
+  resource_group_name = "rg-acme-bot"
+}
 
-
+data "azurerm_key_vault_certificate" "wildcard" {
+  name         = "wildcard-${local.kv_cert_suffix}"
+  key_vault_id = data.azurerm_key_vault.acmebot.id
+}
 
 
 resource "azurerm_resource_group" "linklist" {
@@ -60,8 +67,13 @@ resource "azurerm_storage_account" "linklist" {
   name                     = "linklist${random_string.linklist_unique.result}"
   resource_group_name      = azurerm_resource_group.linklist.name
   location                 = var.location
+  account_kind             = "StorageV2"
   account_tier             = "Standard"
   account_replication_type = "LRS"
+  static_website {
+    index_document = "index.html"
+  }
+  
 }
 
 resource "azurerm_app_service_plan" "linklist" {
@@ -113,7 +125,7 @@ resource "azurerm_function_app" "linklist" {
     }
   }
   auth_settings {
-    enabled = false
+    enabled = true
     default_provider = "AzureActiveDirectory"
     unauthenticated_client_action  = "RedirectToLoginPage"
     active_directory {
@@ -142,15 +154,6 @@ resource "azurerm_dns_txt_record" "linklist" {
   }
 }
 
-data "azurerm_key_vault" "acmebot" {
-  name                = var.cert_kv_name
-  resource_group_name = "rg-acme-bot"
-}
-
-data "azurerm_key_vault_certificate" "wildcard" {
-  name         = "wildcard-${local.kv_cert_suffix}"
-  key_vault_id = data.azurerm_key_vault.acmebot.id
-}
 
 resource "azurerm_app_service_custom_hostname_binding" "linklist" {
   hostname            = trim(azurerm_dns_cname_record.linklist.fqdn, ".")
@@ -245,7 +248,7 @@ resource "azurerm_cosmosdb_sql_container" "linklist" {
 
 resource "azuread_application" "linklist-react" {
   display_name               = "linklist-react-app"
-  
+  homepage                   = "https://linklist.scallighan.com/"
   # AAD Graph API   
   required_resource_access {
     resource_app_id = "00000003-0000-0000-c000-000000000000"
@@ -269,6 +272,64 @@ resource "azuread_application" "linklist-react" {
     }
   }
   provisioner "local-exec" {
-    command = "az rest --method PATCH --uri 'https://graph.microsoft.com/v1.0/applications/${azuread_application.linklist-react.object_id}' --headers 'Content-Type=application/json' --body '{\"spa\":{\"redirectUris\":[\"http://localhost:3000\"]}}'"
+    command = "az rest --method PATCH --uri 'https://graph.microsoft.com/v1.0/applications/${azuread_application.linklist-react.object_id}' --headers 'Content-Type=application/json' --body '{\"spa\":{\"redirectUris\":[\"http://localhost:3000\",\"https://linklist.scallighan.com/\"]}}'"
   }
 }
+
+resource "null_resource" "build_linklist_react"{
+  depends_on = [
+    azurerm_storage_account.linklist
+  ]
+  triggers = {
+    index = "2021-05-14T23:23:09Z"
+  }
+  provisioner "local-exec" {
+    working_dir = "linklist-react"
+    command     = "npm run build && az storage blob upload-batch --account-name ${azurerm_storage_account.linklist.name} -d '$web' -s build/. && az cdn endpoint purge --content-paths  '/*' --profile-name 'linklist-cdn' --name 'linklist${random_string.linklist_unique.result}' --resource-group '${azurerm_resource_group.linklist.name}'"
+  }
+}
+
+
+resource "azurerm_cdn_profile" "linklist" {
+  name                = "linklist-cdn"
+  location            = azurerm_resource_group.linklist.location
+  resource_group_name = azurerm_resource_group.linklist.name
+  sku                 = "Standard_Microsoft"
+}
+
+resource "azurerm_cdn_endpoint" "linklist" {
+  name                = "linklist${random_string.linklist_unique.result}"
+  profile_name        = azurerm_cdn_profile.linklist.name
+  location            = azurerm_resource_group.linklist.location
+  resource_group_name = azurerm_resource_group.linklist.name
+  origin_host_header  = azurerm_storage_account.linklist.primary_web_host
+
+
+  origin {
+    name      = "linklist-storage-account"
+    host_name = azurerm_storage_account.linklist.primary_web_host
+  }
+  delivery_rule {
+    name  = "EnforceHTTPS"
+    order = "1"
+
+    request_scheme_condition {
+      operator     = "Equal"
+      match_values = ["HTTP"]
+    }
+
+    url_redirect_action {
+      redirect_type = "Found"
+      protocol      = "Https"
+    }
+  }
+}
+
+resource "azurerm_dns_cname_record" "linklist-react" {
+  name                = "linklist"
+  zone_name           = data.azurerm_dns_zone.domain.name
+  resource_group_name = data.azurerm_resource_group.domain.name
+  ttl                 = 300
+  target_resource_id  = azurerm_cdn_endpoint.linklist.id
+}
+
