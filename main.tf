@@ -204,6 +204,9 @@ resource "azuread_application" "linklist" {
       type = "Scope"
     }
   }
+  provisioner "local-exec" {
+    command = "az rest --method PATCH --uri 'https://graph.microsoft.com/v1.0/applications/${azuread_application.linklist.object_id}' --headers 'Content-Type=application/json' --body '{\"spa\":{\"redirectUris\":[\"http://localhost:3000\",\"https://linklist.scallighan.com/\"]}}'"
+  }
 }
 
 resource "azurerm_cosmosdb_account" "linklist" {
@@ -281,7 +284,8 @@ resource "null_resource" "build_linklist_react"{
     azurerm_storage_account.linklist
   ]
   triggers = {
-    index = "2021-05-14T23:23:09Z"
+    #index = "2021-05-14T23:23:09Z"
+    index = "${timestamp()}"
   }
   provisioner "local-exec" {
     working_dir = "linklist-react"
