@@ -220,11 +220,6 @@ resource "azurerm_cosmosdb_account" "linklist" {
   }
 
   geo_location {
-    location          = "West US"
-    failover_priority = 1
-  }
-
-  geo_location {
     location          = azurerm_resource_group.linklist.location
     failover_priority = 0
   }
